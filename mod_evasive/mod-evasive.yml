@@ -1,0 +1,30 @@
+---
+- name: Installing and activating mod evasive in apache server
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install Apache
+      apt:
+        name: apache2-utils
+        state: present 
+    - name: Installing mod-evasive packages
+      apt:
+        name: libapache2-mod-evasive
+        state: present
+    - name: enabling Mod evasive
+      command: a2enmod evasive
+    - name: deletiong existing configutration file if avaiav\ble
+      file:
+        path: /etc/apache2/mods-enabled/evasive.conf
+        state: absent
+    - name: Configuring Mod evasive
+      copy:
+        src: evasive.conf
+        dest: /etc/apache2/mods-enabled/evasive.conf
+        force: yes
+    - name: Restarting services
+      service: 
+        name: apache2
+        state: restarted
+    
+      

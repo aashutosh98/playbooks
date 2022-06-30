@@ -1,0 +1,80 @@
+--- 
+- name: Install and Cinfiguration of mod security in apache server 
+  hosts: 178.128.106.93
+  become: yes
+  tasks:
+    - name: Installing Apache
+      apt:
+        name: apache2-utils
+        state: present 
+    - name: Downloading mod-security packages
+      apt:
+        name: libapache2-mod-security2
+        state: present 
+    - name: enabling headers and modules
+      command: a2enmod headers
+    - name: Creating configuration file
+      copy: 
+        src: /etc/modsecurity/modsecurity.conf-recommended
+        dest: /etc/modsecurity/modsecurity.conf
+        remote_src: true
+    - name: Changing the Configuration file
+      replace: 
+        path: /etc/modsecurity/modsecurity.conf
+        regexp: SecRuleEngine DetectionOnly
+        replace: SecRuleEngine On
+    - name: Restarting Apache Service 
+      service:
+        name: apache2
+        state: restarted
+    - name: removing default rules
+      file:
+        path: /usr/share/modsecurity-crs/
+        state: absent
+    - name: Installing git to import new rules from OSINT Repo 
+      apt:
+        name: git
+        state: present 
+    - name: Importing New Rules From OSINT repo
+      git:
+        repo: https://github.com/coreruleset/coreruleset
+        dest: /usr/share/modsecurity-crs
+        clone: yes
+    - name: Configuring New rules 
+      copy:
+        src: /usr/share/modsecurity-crs/crs-setup.conf.example
+        dest: /usr/share/modsecurity-crs/crs-setup.conf
+        remote_src: yes
+    - name: Enabling New Rules
+      command: mv /usr/share/modsecurity-crs/crs-setup.conf.example /usr/share/modsecurity-crs/crs-setup.conf
+      command: mv /usr/share/modsecurity-crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf.example /usr/share/modsecurity-crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf
+    - name: Setting up new rules configuration
+      copy:
+        src: mod_security.conf
+        dest: /etc/apache2/mods-available/security2.conf
+    - name : Finding the vhosts
+      find:
+        paths: /etc/apache2/sites-available/
+        patterns: '*.conf'
+      register: output
+
+    - debug:
+        msg: "{{ output.files | map(attribute='path')| list }}"
+
+    - name: Configuring the vhosts to use mod-security
+      lineinfile:
+        path: "{{ item.path }}"
+        line: SecRuleEngine On
+        insertbefore: </VirtualHost>
+      with_items: "{{ output.files }}"
+    - name: restarting apache service
+      service:
+        name: apache2
+        state: restarted
+    
+    
+
+
+    
+
+      
